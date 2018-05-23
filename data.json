@@ -1755,16 +1755,6 @@
 		"Production_t_y": "470.15"
 	},
 	{
-		"ID": "174",
-		"Tambon": "เกาะสาหร่าย",
-		"Ampher": "เมืองสตูล",
-		"Province": "สตูล",
-		"Longitude": "99.552629999999994",
-		"Latitude": "6.5992800000000003",
-		"Production_kg_y": "51300",
-		"Production_t_y": "51.3"
-	},
-	{
 		"ID": "175",
 		"Tambon": "คลองขุด",
 		"Ampher": "เมืองสตูล",
