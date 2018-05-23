@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Distance Matrix service</title>
+        <style>
+            #right-panel {
+                font-family: 'Roboto','sans-serif';
+                line-height: 30px;
+                padding-left: 10px;
+            }
+
+            #right-panel select, #right-panel input {
+                font-size: 15px;
+            }
+
+            #right-panel select {
+                width: 100%;
+            }
+
+            #right-panel i {
+                font-size: 12px;
+            }
+            html, body {
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            #map {
+                height: 100%;
+                width: 50%;
+            }
+            #right-panel {
+                float: right;
+                width: 48%;
+                padding-left: 2%;
+            }
+            #output {
+                font-size: 11px;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="right-panel">
+            <button type="button"onclick="downlink()">Download File</button>
+            <div id="inputs">
+                <pre>
+var origin1 = {lat: 7.016917, lng: 100.496731};
+<!--var origin2 = 'Greenwich, England';-->
+<!--var destinationA = 'Stockholm, Sweden';-->
+var destinationB = {lat: 7.47388, lng: 99.91134};
+        </pre>
+            </div>
+            <div>
+                <strong>Results</strong>
+            </div>
+            <div id="output"></div>
+        </div>
+        <div id="map"></div>
+        <script>
+            var dataRaws = [];
+            var id = [];
+            var tambon = [];
+            var ampher = [] ;
+            var province = [];
+            var long = [];
+            var lat = [];
+            var production_kg_y = [];
+            var groups = [];
+            var names = [];
+            function loadJSON(file, callback) {   
+                var xobj = new XMLHttpRequest();
+                xobj.overrideMimeType("application/json");
+                xobj.open('GET', file, true); // Replace 'my_data' with the path to your file
+                xobj.onreadystatechange = function () {
+                    if (xobj.readyState == 4 && xobj.status == "200") {
+                        // Required use of an anonymous callback as .open will NOT return a value but simply returns undefined in asynchronous mode
+                        callback(xobj.responseText);
+                    }
+                };
+                xobj.send(null);  
+            }
+
+            function readData(dataObj) {
+                var datas = JSON.parse(dataObj);
+                //   readFinished                 console.log(actual_JSON);
+                var i = 0;
+                for (data in datas)
+                {
+                    datas[i].Longitude = parseFloat(datas[i].Longitude );
+                    datas[i].Latitude = parseFloat(datas[i].Latitude );
+                    dataRaws.push(datas[i]);
+                    id.push(datas[i].ID);
+                    tambon.push(datas[i].Tambon);
+                    ampher.push(datas[i].Ampher);
+                    province.push(datas[i].Province);
+                    long.push(datas[i].Longitude);
+                    lat.push(datas[i].Latitude);
+                    production_kg_y.push(datas[i].Production_kg_y);
+                    names.push("ตำบล"+datas[i].Tambon+" อำเภอ"+datas[i].Ampher+" จังหวัด"+datas[i].Province);
+                    i++;
+                }
+                readFinished();
+                initMap();
+            }   
+
+            function readFinished(){
+                //                console.log(names);
+                var temp = [];
+                for(var i =0 ; i < 25 ; i++){
+                    temp.push(names[i]);
+                }  
+
+                //                console.log(temp);
+            }
+
+            function main() {
+                loadJSON("https://raw.githubusercontent.com/armendo24/rubber/master/data.json", readData);
+            }
+
+            //            main();
+
+        </script>
+        <script>
+            var markersArray = [];
+            var geocoder;
+            var destinationIcon;
+            var originIcon;
+            var tempgroups = [];
+            var templadlong = [];
+            var distanceMatrix = [];
+            var sizeGroup;
+
+            function initMap() {
+                var size = 10;
+                sizeGroup = size;
+                var lengthEnd = lat.length % size;
+
+                var n = lat.length / size;
+                for(var i = 0 ; i <= n ; i++){
+                    lengthEnd = size;
+                    if (i == parseInt(n)){
+                        lengthEnd = (lat.length % size);
+                    }
+
+                    tempgroups = [];
+                    for (var j = size*i; j < lengthEnd+(size*i); j++) {
+                        tempgroups.push({lat: lat[j], lng: long[j]});
+                    }
+                    groups.push(tempgroups); 
+                }
+                console.log(groups);
+                var bounds = new google.maps.LatLngBounds;
+                var origin1 = {lat: lat[0], lng: long[0]};
+                //        var origin2 = 'Greenwich, England';
+                //        var destinationA = 'Stockholm, Sweden';
+                var destinationB = {lat: lat[0], lng: long[0]};
+                destinationIcon = 'https://chart.googleapis.com/chart?' +
+                    'chst=d_map_pin_letter&chld=D|FF0000|000000';
+                originIcon = 'https://chart.googleapis.com/chart?' +
+                    'chst=d_map_pin_letter&chld=O|FFFF00|000000';
+                var map = new google.maps.Map(document.getElementById('map'), {
+                    center: {lat: 7.47388, lng: 99.91134},
+                    zoom: 10
+                });
+                geocoder = new google.maps.Geocoder;
+
+                createDistanceMatrix();
+
+
+
+
+                var service = new google.maps.DistanceMatrixService;
+                service.getDistanceMatrix({
+                    origins: [origin1],
+                    destinations: groups[18],
+                    travelMode: 'DRIVING',
+                    unitSystem: google.maps.UnitSystem.METRIC,
+                    avoidHighways: false,
+                    avoidTolls: false
+                }, function(response, status) {
+                    if (status !== 'OK') {
+                        alert('Error was: ' + status);
+                    } else {
+                        var originList = response.originAddresses;
+                        var destinationList = response.destinationAddresses;
+                        var outputDiv = document.getElementById('output');
+                        outputDiv.innerHTML = '';
+                        deleteMarkers(markersArray);
+
+                        var showGeocodedAddressOnMap = function(asDestination) {
+                            var icon = asDestination ? destinationIcon : originIcon;
+                            return function(results, status) {
+                                if (status === 'OK') {
+                                    map.fitBounds(bounds.extend(results[0].geometry.location));
+                                    markersArray.push(new google.maps.Marker({
+                                        map: map,
+                                        position: results[0].geometry.location,
+                                        icon: icon
+                                    }));
+                                } else {
+                                    alert('Geocode was not successful due to: ' + status);
+                                }
+                            };
+                        };
+
+                        for (var i = 0; i < originList.length; i++) {
+                            var results = response.rows[i].elements;
+                            geocoder.geocode({'address': originList[i]},
+                                             showGeocodedAddressOnMap(false));
+                            for (var j = 0; j < results.length; j++) {
+                                geocoder.geocode({'address': destinationList[j]},
+                                                 showGeocodedAddressOnMap(true));
+                                outputDiv.innerHTML += originList[i] + ' to ' + destinationList[j] +
+                                    ': ' + results[j].distance.text + ' in ' +
+                                    results[j].duration.text + '<br>';
+                            }
+                        }
+                    }
+                });
+            }
+
+            var numberFinished;
+            function createDistanceMatrix(){
+                for (var i = 0; i < lat.length; i++){
+                    var D = [];
+                    for(var j = 0; j < lat.length; j++){
+                        D.push(-1);
+                    }
+                    distanceMatrix.push(D);
+                }
+                numberFinished = 0;
+                getDistanceMatrix(55, 0);
+            }
+            var savedata;
+            function getDistanceMatrix(row, groupIndex){
+                console.log("IN "+row+" "+ groupIndex);
+                if(groupIndex == groups.length){
+                    row++;
+                    groupIndex = 0;
+                    pausecomp(3000);
+                }
+                if (row == lat.length){
+                    console.log("");
+                    return;
+                }
+
+
+                var origins = [{lat: lat[row], lng: long[row]}];
+                var destinations = groups[groupIndex];
+
+                var service = new google.maps.DistanceMatrixService;
+                service.getDistanceMatrix({
+                    origins: origins,
+                    destinations: destinations,
+                    travelMode: 'DRIVING',
+                    unitSystem: google.maps.UnitSystem.METRIC,
+                    avoidHighways: false,
+                    avoidTolls: false
+                }, function(response, status) {
+                    if (status !== 'OK') {
+                        alert('Error was: ' + status);
+                    } else {
+                        var distance = [];
+                        var originList = response.originAddresses;
+                        var destinationList = response.destinationAddresses;
+                        for (var i = 0; i < originList.length; i++) {
+                            var results = response.rows[i].elements;
+                            for (var j = 0; j < results.length; j++) {
+                                distance.push(results[j].distance.value/1000);
+                            }
+                        }
+
+                        var start = sizeGroup*groupIndex;
+                        for (var j = 0; j < distance.length; j++) {
+                            distanceMatrix[row][j + start] = distance[j];
+                        }
+                        numberFinished++;
+                        console.log("Number Of Finish: " + numberFinished);
+                        pausecomp(1000);
+                        groupIndex++;
+                        getDistanceMatrix(row, groupIndex);
+                    }
+                });
+            }
+
+            function pausecomp(millis)
+            {
+                var date = new Date();
+                var curDate = null;
+                do { curDate = new Date(); }
+                while(curDate-date < millis);
+            }
+
+            function deleteMarkers(markersArray) {
+                for (var i = 0; i < markersArray.length; i++) {
+                    markersArray[i].setMap(null);
+                }
+                markersArray = [];
+            }
+            function downlink(){
+                for(var j =0 ; j < distanceMatrix.length ; j++){
+                    for(var i = 0 ; i <distanceMatrix.length ; i ++ ){
+                        savedata += distanceMatrix[j][i]+",";
+                    }
+                    savedata += "\n";
+                }
+                var dataStr = "data:text/Json;charset=utf-8, "+ encodeURIComponent(savedata)   ;
+                var dlAnchorElm = document.createElement("a");
+                dlAnchorElm.setAttribute("href",dataStr);
+                dlAnchorElm.setAttribute("download","testdata.csv");
+                dlAnchorElm.click();
+            }
+
+        </script>
+        <script async defer
+                src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAuWgySqiQZSF4ZtJPg-2ui_tnVnYSXwfk&callback=main">       
+        </script>
+    </body>
+</html>
